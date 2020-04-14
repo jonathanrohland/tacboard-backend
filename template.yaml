@@ -14,6 +14,7 @@ Parameters:
     MaxLength: 50
     AllowedPattern: ^[A-Za-z_]+$
     ConstraintDescription: 'Required. Can be characters and underscore only. No numbers or special characters allowed.'
+    ConstraintDescription: 'Required. Can be characters and underscore only. No numbers or special characters allowed.'
 
 Resources:
   TacboardWebSocket:
@@ -112,6 +113,21 @@ Resources:
       SSESpecification:
         SSEEnabled: True
       TableName: !Ref ConnectionsTableName
+  GamesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+      - AttributeName: "gameId"
+        AttributeType: "S"
+      KeySchema:
+      - AttributeName: "gameId"
+        KeyType: "HASH"
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+      SSESpecification:
+        SSEEnabled: True
+      TableName: !Ref GamesTableName
   OnConnectFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -121,7 +137,7 @@ Resources:
       Runtime: nodejs12.x
       Environment:
         Variables:
-          TABLE_NAME: !Ref ConnectionsTableName
+          CONNECTIONS_TABLE_NAME: !Ref ConnectionsTableName
       Policies:
       - DynamoDBCrudPolicy:
           TableName: !Ref ConnectionsTableName
@@ -143,7 +159,7 @@ Resources:
       Runtime: nodejs12.x
       Environment:
         Variables:
-          TABLE_NAME: !Ref ConnectionsTableName
+          CONNECTIONS_TABLE_NAME: !Ref ConnectionsTableName
       Policies:
       - DynamoDBCrudPolicy:
           TableName: !Ref ConnectionsTableName
@@ -165,10 +181,13 @@ Resources:
       Runtime: nodejs12.x
       Environment:
         Variables:
-          TABLE_NAME: !Ref ConnectionsTableName
+          CONNECTIONS_TABLE_NAME: !Ref ConnectionsTableName
+          GAMES_TABLE_NAME: !Ref GamesTableName
       Policies:
       - DynamoDBCrudPolicy:
           TableName: !Ref ConnectionsTableName
+      - DynamoDBCrudPolicy:
+          TableName: !Ref GamesTableName
       - Statement:
         - Effect: Allow
           Action:
