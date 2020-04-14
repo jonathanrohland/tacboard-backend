@@ -70,18 +70,18 @@ Resources:
       IntegrationUri: 
         Fn::Sub:
             arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${OnDisconnectFunction.Arn}/invocations
-  SendRoute:
+  SendGameStateRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties:
       ApiId: !Ref TacboardWebSocket
-      RouteKey: sendState
+      RouteKey: sendGameState
       AuthorizationType: NONE
-      OperationName: SendRoute
+      OperationName: SendGameStateRoute
       Target: !Join
         - '/'
         - - 'integrations'
-          - !Ref SendInteg
-  SendInteg:
+          - !Ref SendGameStateInteg 
+  SendGameStateInteg:
     Type: AWS::ApiGatewayV2::Integration
     Properties:
       ApiId: !Ref TacboardWebSocket
@@ -94,7 +94,7 @@ Resources:
     Type: AWS::ApiGatewayV2::Deployment
     DependsOn:
     - ConnectRoute
-    - SendRoute
+    - SendGameStateRoute
     - DisconnectRoute
     Properties:
       ApiId: !Ref TacboardWebSocket

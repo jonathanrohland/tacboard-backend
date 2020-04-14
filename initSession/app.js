@@ -33,11 +33,11 @@ exports.handler = async event => {
 
   const postData = JSON.parse(event.body).data;
 
-  // try {
-  //   await savStateToDB('default', JSON.stringify(postData))
-  // } catch (e) {
-  //   return { statusCode: 500, body: e.stack };
-  // }
+  try {
+    await savStateToDB('default', JSON.stringify(postData))
+  } catch (e) {
+    return { statusCode: 500, body: e.stack };
+  }
 
   const postCalls = openConnections.Items.map(async ({ connectionId }) => {
     try {
