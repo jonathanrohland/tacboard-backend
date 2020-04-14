@@ -1,7 +1,7 @@
 {
-  "name": "send-message",
+  "name": "send-game-state",
   "version": "1.0.0",
-  "description": "sendmessage example for WebSockets on API Gateway",
+  "description": "Function to broadcast the game-state to all players",
   "main": "src/app.js",
   "author": "SAM CLI",
   "license": "MIT",
