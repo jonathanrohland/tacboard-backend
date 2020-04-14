@@ -5,7 +5,17 @@ const AWS = require('aws-sdk');
 
 const ddb = new AWS.DynamoDB.DocumentClient({ apiVersion: '2012-08-10', region: process.env.AWS_REGION });
 
-const { CONNECTIONS_TABLE_NAME } = process.env;
+const { CONNECTIONS_TABLE_NAME, GAMES_TABLE_NAME } = process.env;
+
+function savStateToDB(gameId, state) {
+  return ddb.put({
+    TableName: GAMES_TABLE_NAME, Item: {
+      gameId: gameId,
+      gameStateNumAttribute: state,
+      expires: Math.floor(Date.now() / 1000 + 60 * 60) // Expire in 1h
+    }
+  }).promise();
+}
 
 exports.handler = async event => {
   let openConnections;
@@ -22,6 +32,12 @@ exports.handler = async event => {
   });
 
   const postData = JSON.parse(event.body).data;
+
+  try {
+    await savStateToDB('default', JSON.stringify(postData))
+  } catch (e) {
+    return { statusCode: 500, body: e.stack };
+  }
 
   const postCalls = openConnections.Items.map(async ({ connectionId }) => {
     try {
