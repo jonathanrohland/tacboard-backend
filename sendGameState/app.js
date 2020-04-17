@@ -7,7 +7,7 @@ const ddb = new AWS.DynamoDB.DocumentClient({ apiVersion: '2012-08-10', region: 
 
 const { CONNECTIONS_TABLE_NAME, GAMES_TABLE_NAME } = process.env;
 
-function savStateToDB(gameId, state) {
+function saveStateToDB(gameId, state) {
   return ddb.put({
     TableName: GAMES_TABLE_NAME, Item: {
       gameId: gameId,
@@ -20,7 +20,19 @@ function savStateToDB(gameId, state) {
 exports.handler = async event => {
   let openConnections;
 
-  const gameId = 'default';
+  const postData = JSON.parse(event.body).data;
+  const gameId = postData.gameId;
+
+  if (!gameId) {
+    return { statusCode: 400, body: 'Missing gameId in sendGameState message' };
+  }
+
+  try {
+    console.log('Saving state to DB:', postData);
+    await saveStateToDB(gameId, postData)
+  } catch (e) {
+    return { statusCode: 500, body: e.stack };
+  }
 
   try {
     openConnections = await ddb.scan({
@@ -38,17 +50,16 @@ exports.handler = async event => {
     endpoint: event.requestContext.domainName + '/' + event.requestContext.stage
   });
 
-  const postData = JSON.parse(event.body).data;
 
-  try {
-    await savStateToDB(gameId, postData)
-  } catch (e) {
-    return { statusCode: 500, body: e.stack };
-  }
 
   const postCalls = openConnections.Items.map(async ({ connectionId }) => {
     try {
-      await apigwManagementApi.postToConnection({ ConnectionId: connectionId, Data: postData }).promise();
+      console.log('Posting to connection', connectionId);
+      console.log('Data', postData);
+      await apigwManagementApi.postToConnection({ ConnectionId: connectionId, Data: JSON.stringify(postData) }, function (err, data) {
+        if (err) console.log('Error posting:', err, err.stack); // an error occurred
+        else console.log('Successfully posted:', data);           // successful response).promise();
+      }).promise();
     } catch (e) {
       if (e.statusCode === 410) {
         console.log(`Found stale connection, deleting ${connectionId}`);
@@ -60,6 +71,7 @@ exports.handler = async event => {
   });
 
   try {
+    console.log('Awaiting postCalls');
     await Promise.all(postCalls);
   } catch (e) {
     return { statusCode: 500, body: e.stack };
