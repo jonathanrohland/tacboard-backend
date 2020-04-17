@@ -58,7 +58,6 @@ exports.handler = async event => {
       console.log('Data', postData);
       await apigwManagementApi.postToConnection({ ConnectionId: connectionId, Data: JSON.stringify(postData) }, function (err, data) {
         if (err) console.log('Error posting:', err, err.stack); // an error occurred
-        else console.log('Successfully posted:', data);           // successful response).promise();
       }).promise();
     } catch (e) {
       if (e.statusCode === 410) {
@@ -71,7 +70,6 @@ exports.handler = async event => {
   });
 
   try {
-    console.log('Awaiting postCalls');
     await Promise.all(postCalls);
   } catch (e) {
     return { statusCode: 500, body: e.stack };

@@ -33,10 +33,6 @@ exports.handler = async event => {
   });
 
   const eventBody = JSON.parse(event.body);
-  console.log('Parsed event.body:', eventBody);
-  console.log('Parsed data:', eventBody.data);
-  console.log('Parsed gameId:', eventBody.data.gameId);
-  console.log('Parsed gameId type:', typeof eventBody.data.gameId);
 
   const gameId = eventBody.data.gameId;
 
@@ -53,12 +49,9 @@ exports.handler = async event => {
   }
 
   const postToConnectionPromise = gameStatePromise.then(async gameStateDocument => {
-    console.log('Starting gameStatePromise.then callback with keys', Object.keys(gameStateDocument));
-    console.log('Starting gameStatePromise.then callback with type', typeof gameStateDocument);
-    console.log('Starting gameStatePromise.then callback with data', JSON.stringify(gameStateDocument));
 
     if (gameStateDocument.Item) {
-      console.log('Trying postToConnetionwith data', gameStateDocument.Item.toString());
+      console.log('Trying postToConnetionwith data', JSON.stringify(gameStateDocument.Item));
 
       try {
         return await apigwManagementApi.postToConnection({ ConnectionId: connectionId, Data: JSON.stringify(gameStateDocument.Item.gameStateNumAttribute) }, function (err, data) {
