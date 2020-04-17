@@ -20,8 +20,15 @@ function savStateToDB(gameId, state) {
 exports.handler = async event => {
   let openConnections;
 
+  const gameId = 'default';
+
   try {
-    openConnections = await ddb.scan({ TableName: CONNECTIONS_TABLE_NAME, ProjectionExpression: 'connectionId' }).promise();
+    openConnections = await ddb.scan({
+      TableName: CONNECTIONS_TABLE_NAME,
+      ProjectionExpression: 'connectionId',
+      FilterExpression: 'gameId = :game_id',
+      ExpressionAttributeValues: { ':game_id': gameId }
+    }).promise();
   } catch (e) {
     return { statusCode: 500, body: e.stack };
   }
@@ -33,11 +40,11 @@ exports.handler = async event => {
 
   const postData = JSON.parse(event.body).data;
 
-  // try {
-  //   await savStateToDB('default', JSON.stringify(postData))
-  // } catch (e) {
-  //   return { statusCode: 500, body: e.stack };
-  // }
+  try {
+    await savStateToDB(gameId, postData)
+  } catch (e) {
+    return { statusCode: 500, body: e.stack };
+  }
 
   const postCalls = openConnections.Items.map(async ({ connectionId }) => {
     try {

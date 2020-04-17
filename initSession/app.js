@@ -7,56 +7,82 @@ const ddb = new AWS.DynamoDB.DocumentClient({ apiVersion: '2012-08-10', region: 
 
 const { CONNECTIONS_TABLE_NAME, GAMES_TABLE_NAME } = process.env;
 
-function savStateToDB(gameId, state) {
+async function updateGameId(connectionId, gameId) {
   return ddb.put({
-    TableName: GAMES_TABLE_NAME, Item: {
+    TableName: CONNECTIONS_TABLE_NAME,
+    Item: {
+      connectionId: connectionId,
       gameId: gameId,
-      gameStateNumAttribute: state,
-      expires: Math.floor(Date.now() / 1000 + 60 * 60) // Expire in 1h
     }
   }).promise();
 }
 
+function getGameState(gameId) {
+  return ddb.get({
+    TableName: GAMES_TABLE_NAME,
+    Key: {
+      'gameId': gameId
+    }
+  }, (err, data) => {
+    if (err) {
+      console.log("Error", err);
+    } else {
+      console.log("Success", data.Item);
+    }
+  }).promise()
+}
+
 exports.handler = async event => {
-  let openConnections;
-
-  try {
-    openConnections = await ddb.scan({ TableName: CONNECTIONS_TABLE_NAME, ProjectionExpression: 'connectionId' }).promise();
-  } catch (e) {
-    return { statusCode: 500, body: e.stack };
-  }
-
   const apigwManagementApi = new AWS.ApiGatewayManagementApi({
     apiVersion: '2018-11-29',
     endpoint: event.requestContext.domainName + '/' + event.requestContext.stage
   });
 
-  const postData = JSON.parse(event.body).data;
+  const gameId = JSON.parse(event.body).data.gameId;
+  const connectionId = event.requestContext.connectionId;
+  let gameStatePromise;
 
   try {
-    await savStateToDB('default', JSON.stringify(postData))
+    await updateGameId(connectionId, gameId)
+    console.log('Loading  game  state for gameId', gameId);
+
+    gameStatePromise = getGameState(gameId);
   } catch (e) {
     return { statusCode: 500, body: e.stack };
   }
 
-  const postCalls = openConnections.Items.map(async ({ connectionId }) => {
-    try {
-      await apigwManagementApi.postToConnection({ ConnectionId: connectionId, Data: postData }).promise();
-    } catch (e) {
-      if (e.statusCode === 410) {
-        console.log(`Found stale connection, deleting ${connectionId}`);
-        await ddb.delete({ TableName: CONNECTIONS_TABLE_NAME, Key: { connectionId } }).promise();
-      } else {
-        throw e;
+  const postToConnectionPromise = gameStatePromise.then(async gameStateDocument => {
+    console.log('Starting gameStatePromise.then callback with  data', gameStateDocument.toString());
+    if (gameStateDocument) {
+      console.log('Trying postToConnetionwith data', gameStateDocument.Item);
+
+      try {
+        return await apigwManagementApi.postToConnection({ ConnectionId: connectionId, Data: gameStateDocument.Item.gameStateNumAttribute }, function (err, data) {
+          if (err) console.log('Error posting to connection', err, err.stack);
+          else console.log(data);
+        }).promise();
+      } catch (e) {
+        if (e.statusCode === 410) {
+          console.log(`Found stale connection, deleting ${connectionId}`);
+          await ddb.delete({ TableName: CONNECTIONS_TABLE_NAME, Key: { connectionId } }).promise();
+        } else {
+          throw e;
+        }
       }
+    } else {
+      console.log('Did not find gameState for gameId', gameId);
     }
-  });
+  },
+    error => {
+      HTMLFormControlsCollection.log('Error loading gameState');
+      return { statusCode: 500, body: error };
+    })
 
   try {
-    await Promise.all(postCalls);
+    await Promise.all([gameStatePromise, postToConnectionPromise]);
   } catch (e) {
     return { statusCode: 500, body: e.stack };
   }
 
-  return { statusCode: 200, body: 'Data sent.' };
+  return { statusCode: 200, body: 'Sent initial state.' };
 };
